@@ -1346,9 +1346,9 @@ with tab_clustering:
         # ===== Loop score 1–5 =====
         for score in range(1, 6):
 
-            r_val = df_cluster[df_cluster["R_Score"] == score]["Recency"].sum()
-            f_val = df_cluster[df_cluster["F_Score"] == score]["Frequency"].sum()
-            m_val = df_cluster[df_cluster["M_Score"] == score]["Monetary"].sum()
+            r_val = df_cluster[df_cluster["R_Score"] == score]["Recency"].count()
+            f_val = df_cluster[df_cluster["F_Score"] == score]["Frequency"].count()
+            m_val = df_cluster[df_cluster["M_Score"] == score]["Monetary"].count()
 
             plot_rows.extend([
                 {
