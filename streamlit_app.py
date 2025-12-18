@@ -305,7 +305,7 @@ with tab_visualization:
         )
 
 # ==================== Tren Pendapatan Bulanan =======================
-    with st.expander("Tren Pendapatan Bulanan Tahun 2011-2012"):
+    with st.expander("Tren Pendapatan Bulanan Tahun 2010-2011"):
         monthly = (
             df.groupby('InvoiceYearMonth')
             .agg(
@@ -331,7 +331,7 @@ with tab_visualization:
             x="InvoiceYearMonth",
             y="TotalAmount",
             markers=True,
-            title="Tren Pendapatan Bulanan Tahun 2011-2012",
+            title="Tren Pendapatan Bulanan Tahun 2010-2011",
         )
 
         fig_monthly.update_traces(
