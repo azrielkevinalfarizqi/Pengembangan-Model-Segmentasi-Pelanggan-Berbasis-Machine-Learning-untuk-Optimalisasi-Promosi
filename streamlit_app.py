@@ -26,7 +26,6 @@ df = pd.read_csv(
     parse_dates=["InvoiceDate"]
 )
 
-# ===== Pastikan numerik =====
 num_cols = [
     "Quantity", "UnitPrice", "TotalAmount",
     "Recency", "Frequency", "Monetary",
@@ -36,14 +35,12 @@ num_cols = [
 for col in num_cols:
     df[col] = pd.to_numeric(df[col], errors="coerce")
 
-# ===== Drop baris invalid =====
 df = df.loc[
     df["CustomerID"].notna() &
     df["InvoiceNo"].notna() &
     df["TotalAmount"].notna()
 ]
 
-# ===== Feature waktu (kalau belum ada) =====
 df["InvoiceYearMonth"] = df["InvoiceDate"].dt.to_period("M")
 df["InvoiceDate_only"] = df["InvoiceDate"].dt.date
 df["DayName"] = df["InvoiceDate"].dt.day_name().astype("category")
@@ -58,14 +55,60 @@ for col in num_cols: data[col] = pd.to_numeric(data[col], errors="coerce")
 
 # PAGE CONFIG
 st.set_page_config(page_title="A25-CS313", layout="wide")
+st.markdown(
+    """
+    <style>
+    /* ===== APP BACKGROUND ===== */
+    .stApp {
+        background: linear-gradient(to right, #FFF7D1, #FFECC8, #FFD09B);
+    }
+
+    /* ===== METRIC CARD ===== */
+    div[data-testid="stMetric"] {
+        background: rgba(255, 255, 255, 0.65);
+        padding: 18px 16px;
+        border-radius: 18px;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+    }
+
+    /* ===== METRIC LABEL ===== */
+    div[data-testid="stMetricLabel"] {
+        font-size: 28px;
+        font-weight: 800;
+        color: #7C2D12; /* coklat hangat */
+    }
+
+    /* ===== METRIC VALUE ===== */
+    div[data-testid="stMetricValue"] {
+        font-size: 30px;
+        font-weight: 700;
+        color: #451A03;
+    }
+
+    /* ===== METRIC DELTA (BADGE STYLE) ===== */
+    div[data-testid="stMetricDelta"] {
+        font-size: 15px;
+        color: #78350F;
+        background: rgba(251, 191, 36, 0.35); /* amber soft */
+        padding: 6px 14px;
+        border-radius: 999px;
+        width: fit-content;
+        margin-top: 6px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 
 st.title("Customer Insight Mining: Pendekatan RFM dan Machine Learning untuk Meningkatkan Loyalitas Pelanggan")
 
 # === TAB ===
-tab_visualization, tab_rfm, tab_clustering, tab_insight = st.tabs(["VISUALISASI DATA AWAL",
+tab_visualization, tab_rfm, tab_clustering, tab_insight = st.tabs(["DATA EXPLORATION",
                                                                    "RFM ANALYSIS",
                                                                    "CLUSTERING ANALYSIS",
-                                                                   "INTERPRETASI"])
+                                                                   "BUSINESS INSIGHT"])
 
 with tab_visualization:
 #============ VISUALISASI PEMBELI BERDASARKAN NEGARA (ATLAS WORLD MAP) =============
@@ -1659,131 +1702,184 @@ with tab_clustering:
 
 #======== TAB INTERPRETASI ============ 
 with tab_insight:
-    # ================= SCATTER PLOT PER CLUSTER (DROPDOWN) =================
-    with st.expander("Scatter Plot Antar Fitur"):
+    
+    #Cluster dengan Monetary tertinggi
+    monetary_per_cluster = (data.groupby("Cluster")["Monetary"].sum())
+    top_monetary_cluster = monetary_per_cluster.idxmax()
+    top_monetary_value = monetary_per_cluster.max()
 
-        # ===== Dropdown kombinasi axis =====
-        axis_option = st.selectbox(
-            "Pilih Kombinasi Sumbu:",
-            [
-                "Monetary vs Recency",
-                "Monetary vs Frequency",
-                "Frequency vs Recency"
-            ],
-            key="axis_scatter_per_cluster"
-        )
+    #Cluster dengan Monetary tertinggi
+    customer_count = data.groupby("Cluster")["CustomerID"].nunique()
+    largest_cluster = customer_count.idxmax()
+    largest_cluster_value = customer_count.max()
 
-        if axis_option == "Monetary vs Recency":
-            x_col, y_col = "Recency", "Monetary"
-        elif axis_option == "Monetary vs Frequency":
-            x_col, y_col = "Frequency", "Monetary"
-        else:
-            x_col, y_col = "Recency", "Frequency"
+    #Cluster paling berisiko
+    recency_per_cluster = (data.groupby("Cluster")["Recency"].sum())
+    risk_cluster = recency_per_cluster.idxmax()
+    risk_recency_value = recency_per_cluster.max()
 
-        # ===== Dropdown Cluster =====
-        selected_cluster = st.selectbox(
-            "Pilih Cluster:",
-            sorted(data["Cluster"].dropna().unique()),
-            key="cluster_scatter_single"
-        )
+    #Cluster paling potensial
+    rfm_per_cluster = (data.groupby("Cluster")["RFM_Score"].sum())
+    best_cluster = rfm_per_cluster.idxmax()
+    best_rfm_value = rfm_per_cluster.max()
 
-        # ===== Warna cluster (KONSISTEN) =====
-        cluster_colors = {
-            0: "#D61355",  # merah
-            1: "#F94A29",  # oranye
-            2: "#FCE22A",  # kuning
-            3: "#30E3DF"   # biru
-        }
+    # st.subheader("Insight Summary")
+    col1, col2, col3, col4 = st.columns(4)
 
-        # ===== Filter data cluster =====
-        df_cluster = data[data["Cluster"] == selected_cluster]
+    col1.metric(
+        label="Total Pendapatan Tertinggi",
+        value=f"Cluster {top_monetary_cluster}",
+        delta=f"Total: {top_monetary_value:,.0f}"
+    )
 
-        # ===== Scatter Plot =====
-        fig = px.scatter(
-            df_cluster,
-            x=x_col,
-            y=y_col,
-            color_discrete_sequence=[cluster_colors.get(selected_cluster, "#999999")],
-            opacity=0.75,
-            title=f"Scatter Plot {y_col} vs {x_col} — Cluster {selected_cluster}",
-            hover_data=["CustomerID", "Recency", "Frequency", "Monetary"]
-        )
+    col2.metric(
+        label="Jumlah Pelanggan Terbanyak",
+        value=f"Cluster {largest_cluster}",
+        delta=f"{largest_cluster_value:,} pelanggan"
+    )
 
-        # ===== LOG SCALE KHUSUS MONETARY =====
-        if x_col == "Monetary":
-            fig.update_xaxes(type="log", title="Monetary (log scale)")
-        if y_col == "Monetary":
-            fig.update_yaxes(type="log", title="Monetary (log scale)")
+    col3.metric(
+        label="Cluster Berisiko",
+        value=f"Cluster {risk_cluster}",
+        delta=f"Recency: {risk_recency_value:.0f} hari"
+    )
 
-        # ===== Layout & Grid =====
-        fig.update_layout(
-            plot_bgcolor="white",
-            height=520,
-            showlegend=False
-        )
+    col4.metric(
+        label="Cluster Paling Potensial",
+        value=f"Cluster {best_cluster}",
+        delta=f"RFM: {best_rfm_value:.0f}"
+    )
 
-        # ===== MATIKAN MINOR GRID (BIAR RAPI) =====
-        fig.update_yaxes(
-            showgrid=True,
-            gridcolor="lightgray",
-            minor=dict(showgrid=False)
-        )
-
-        fig.update_xaxes(
-            showgrid=True,
-            gridcolor="lightgray",
-            minor=dict(showgrid=False)
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
-
-        # ===== INSIGHT PER CLUSTER =====
-        st.subheader("Insight Cluster")
-
-        cluster_insights = {
-        0: """
-        *Cluster 0: High Value But At Risk*
-
+    cluster_insights = {
+    0: {
+        "title": "Cluster 0 : High Value But At Risk",
+        "description": """
         Cluster ini berisi pelanggan bernilai tinggi dengan intensitas transaksi yang kuat,
         namun menunjukkan indikasi penurunan aktivitas. Dominasi segmen Loyal Customer
         dan Can’t Lose Them menandakan risiko churn yang signifikan jika tidak dikelola
         secara proaktif. Strategi yang tepat adalah pendekatan personal, win-back campaign,
         dan penawaran eksklusif untuk mempertahankan nilai mereka.
-        """,
 
-        1: """
-        *Cluster 1: VIP Customers*
+        **Karakteristik: Nilai transaksi tinggi dan memiliki tingkat keaktifan yang beragam**
 
+        **Segmen Dominan: Loyal Customer, Champions, dan Can't Lose Them."**
+        
+        **Rekomendasi:**
+        - Reminder personal: Notifikasi “Produk favoritmu sedang diskon”
+        - Win-back campaign: Voucher diskon "20%" dengan masa berlaku terbatas
+        - Penawaran terbatas: Flash sale eksklusif untuk produk high-value yang sering dibeli pelanggan
+
+        **Catatan: Segmen "Can't lose them" di cluster ini berisiko churn bila tidak dikelola dengan baik**
+        """
+    },
+
+    1: {
+        "title": "Cluster 1 : VIP Customers",
+        "description": """
         Cluster ini merepresentasikan pelanggan terbaik perusahaan yang didominasi segmen
         Champions. Mereka memiliki nilai transaksi tinggi, konsistensi pembelian yang stabil,
         dan loyalitas kuat. Fokus utama pada cluster ini adalah mempertahankan hubungan jangka
         panjang melalui program loyalitas, upselling, dan cross-selling.
-        """,
 
-        2: """
-        *Cluster 2: Mass Customers*
+        **Karakteristik: Minoritas pelanggan dengan transaksi dan interaksi (recent) paling tinggi**
 
+        **Segmen Dominan: Champions"**
+        
+        **Rekomendasi:**
+        - Layanan Prioritas: Akses lebih awal ke promo besar (early access sale)
+        - Loyalty Eksklusif: Reward point ekstra atau voucher cashback khusus member VIP
+        - Pendekatan Personal (Rewarding): Hadiah ulang tahun, free shipping tanpa minimum, atau voucher spesial loyal customer
+
+        **Catatan: Segmen pada cluster ini harus dipertahankan**
+        """
+    },
+
+    2: {
+        "title": "Cluster 2 : Mass Customers",
+        "description": """
         Cluster ini mencakup mayoritas pelanggan dengan nilai transaksi rendah hingga menengah.
         Banyak di antaranya berada pada fase tidak aktif atau berisiko churn. Meskipun kontribusi
         per pelanggan relatif kecil, cluster ini menjadi basis volume transaksi. Strategi yang
         disarankan adalah edukasi produk, promosi massal, dan reaktivasi ringan.
-        """,
+        
+        **Karakteristik: mayoritas pelanggan dengan nilai transaksi rendah hingga menengah dan tingkat interaksi (recent) yang rendah**
 
-        3: """
-        *Cluster 3: High Value Active*
+        **Segmen Dominan: Hibernating, About to Sleep, Promising, dan New Customers."**
+        
+        **Rekomendasi:**
+        - Edukasi: Email campaign *“Cara memilih produk terbaik untuk kebutuhanmu”* 
+        - Promosi massal: Diskon umum **10–15%** atau gratis ongkir tanpa syarat minimum
+        - Reaktivasi ringan: Push notification *“Belanja pertamamu minggu ini dapat cashback”*
 
+        **Catatan: Beberapa pelanggan di cluster ini berperan sebagai basis volume transaksi sehingga perlu perhatian khusus**
+        """
+    },
+
+    3: {
+        "title": "Cluster 3 : High Value Active",
+        "description": """
         Cluster ini berisi pelanggan bernilai tinggi yang masih aktif dan stabil. Dominasi segmen
         Champions dan Loyal Customers menunjukkan potensi pertumbuhan lanjutan. Pelanggan di
         cluster ini ideal untuk strategi upselling, cross-selling, dan program loyalitas
         berjenjang guna meningkatkan lifetime value.
-        """,
-        }
-
-        # Tampilkan insight sesuai cluster yang dipilih
-        st.info(cluster_insights.get(selected_cluster, "Insight belum tersedia untuk cluster ini."))
         
+        **Karakteristik: Nilai transaksi tinggi dengan frekuensi cukup aktif serta interaksi (recent) yang stabil**
 
+        **Segmen Dominan: Champions dan Loyal Customers."**
+        
+        **Rekomendasi:**
+        - Upselling: Rekomendasi produk premium atau bundle dengan harga spesial
+        - Cross-selling: *“Customers like you also bought…”* pada halaman checkout
+        - Loyalitas berjenjang: Sistem tier (Silver–Gold–Platinum) dengan benefit berbeda
 
+        **Catatan: "Loyal customer" pada cluster ini memiliki potensi naik kelas menjadi "Champions".**
+        """
+        }
+    }
 
+    cluster_colors = {
+    0: "#D61355",  # merah
+    1: "#1E3A8A",  # biru tua
+    2: "#16A34A",  # hijau
+    3: "#F97316",  # oranye
+    }
 
+    st.subheader("Insight dan Karakteristik Cluster")
 
+    for cluster_id in sorted(data["Cluster"].unique()):
+
+        col_chart, col_text = st.columns([3, 4])
+
+        cluster_data = data[data["Cluster"] == cluster_id]
+
+        rfm_score_mean = cluster_data[["R_Score", "F_Score", "M_Score"]].mean()
+
+        radar_df = pd.DataFrame({
+            "Metric": ["Recency", "Frequency", "Monetary"],
+            "Value": rfm_score_mean.values
+        })
+
+        fig = px.line_polar(
+            radar_df,
+            r="Value",
+            theta="Metric",
+            line_close=True,
+            title=f"Radar Chart RFM Score: Cluster {cluster_id}",
+            color_discrete_sequence=[cluster_colors[cluster_id]],
+            range_r=[0, 5]
+        )
+
+        fig.update_layout(
+            title_x=0.5,             
+            title_xanchor="center",
+            showlegend=False,
+            height=420,
+            margin=dict(t=70, b=30, l=30, r=30)
+        )
+
+        col_chart.plotly_chart(fig, use_container_width=True)
+
+        with col_text:
+            with st.container(border=True):
+                st.markdown(f"### {cluster_insights[cluster_id]['title']}")
+                st.markdown(cluster_insights[cluster_id]["description"])
