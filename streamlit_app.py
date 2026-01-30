@@ -1714,12 +1714,12 @@ with tab_insight:
     largest_cluster_value = customer_count.max()
 
     #Cluster paling berisiko
-    recency_per_cluster = (data.groupby("Cluster")["Recency"].sum())
+    recency_per_cluster = (data.groupby("Cluster")["Recency"].mean())
     risk_cluster = recency_per_cluster.idxmax()
     risk_recency_value = recency_per_cluster.max()
 
     #Cluster paling potensial
-    rfm_per_cluster = (data.groupby("Cluster")["RFM_Score"].sum())
+    rfm_per_cluster = (data.groupby("Cluster")["RFM_Score"].mean())
     best_cluster = rfm_per_cluster.idxmax()
     best_rfm_value = rfm_per_cluster.max()
 
